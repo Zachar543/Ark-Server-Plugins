@@ -19,38 +19,15 @@ FString GetText(const std::string& str)
 
 void OnChatMessage(AShooterPlayerController* player_controller, FString* message, EChatSendMode::Type)
 {
-	TArray<FString> parsed;
-	message->ParseIntoArray(parsed, L" ", true);
-
-	if (!parsed.IsValidIndex(1))
-		return;
-
-	const uint64 steam_id = ArkApi::GetApiUtils().GetSteamIdFromController(player_controller);
-
-	if (Permissions::IsPlayerHasPermission(steam_id, "Cheat." + parsed[1]))
-	{
-		if (!message->RemoveFromStart("/cheat "))
-			return;
-
-		FString result;
-		player_controller->ConsoleCommand(&result, message, true);
-
-		FString log = FString::Format(*GetText("LogMsg"), *ArkApi::IApiUtils::GetCharacterName(player_controller),
-		                              **message);
-
-		const bool print_to_chat = config["PrintToChat"];
-		if (print_to_chat)
-			ArkApi::GetApiUtils().SendServerMessageToAll(FColorList::Yellow, *log);
-
-		ArkApi::GetApiUtils().GetShooterGameMode()->PrintToGameplayLog(&log);
-	}
-	else
-	{
-		ArkApi::GetApiUtils().SendChatMessage(player_controller, *GetText("Sender"), *GetText("NoPermissions"));
-	}
+	ProcessCommand(player_controller, message, true);
+}
+void OnConsoleMessage(APlayerController* aPlayerController, FString* message, bool someBool)
+{
+	const auto player_controller = static_cast<AShooterPlayerController*>(aPlayerController);
+	ProcessCommand(player_controller, message, false);
 }
 
-void OnConsoleMessage(APlayerController* aPlayerController, FString* message, bool someBool)
+void ProcessCommand(AShooterPlayerController* player_controller, FString* message, bool chatCommand)
 {
 	TArray<FString> parsed;
 	message->ParseIntoArray(parsed, L" ", true);
@@ -58,14 +35,15 @@ void OnConsoleMessage(APlayerController* aPlayerController, FString* message, bo
 	if (!parsed.IsValidIndex(1))
 		return;
 
-	const auto player_controller = static_cast<AShooterPlayerController*>(aPlayerController);
 	const uint64 steam_id = ArkApi::GetApiUtils().GetSteamIdFromController(player_controller);
 
 	if (Permissions::IsPlayerHasPermission(steam_id, "Cheat." + parsed[1]))
 	{
-		if (!message->RemoveFromStart("mcheat "))
-			return;
-
+		if (chatCommand)
+			if (!message->RemoveFromStart("/cheat ")) return;
+		else
+			if (!message->RemoveFromStart("mcheat ")) return;
+		
 		FString result;
 		player_controller->ConsoleCommand(&result, message, true);
 
