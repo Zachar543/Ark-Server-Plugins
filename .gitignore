@@ -1,0 +1,7 @@
+.idea/
+x64/
+.vs/
+*.vcxproj.user
+CMakeLists.txt
+cmake-build-release/
+

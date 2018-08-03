@@ -50,6 +50,39 @@ void OnChatMessage(AShooterPlayerController* player_controller, FString* message
 	}
 }
 
+void OnConsoleMessage(APlayerController* aPlayerController, FString* message, bool someBool)
+{
+	TArray<FString> parsed;
+	message->ParseIntoArray(parsed, L" ", true);
+
+	if (!parsed.IsValidIndex(1))
+		return;
+
+	const auto player_controller = static_cast<AShooterPlayerController*>(aPlayerController);
+	const uint64 steam_id = ArkApi::GetApiUtils().GetSteamIdFromController(player_controller);
+
+	if (Permissions::IsPlayerHasPermission(steam_id, "Cheat." + parsed[1]))
+	{
+		if (!message->RemoveFromStart("mcheat "))
+			return;
+
+		FString result;
+		player_controller->ConsoleCommand(&result, message, true);
+
+		FString log = FString::Format(*GetText("LogMsg"), *ArkApi::IApiUtils::GetCharacterName(player_controller), **message);
+
+		const bool print_to_chat = config["PrintToChat"];
+		if (print_to_chat)
+			ArkApi::GetApiUtils().SendServerMessageToAll(FColorList::Yellow, *log);
+
+		ArkApi::GetApiUtils().GetShooterGameMode()->PrintToGameplayLog(&log);
+	}
+	else
+	{
+		ArkApi::GetApiUtils().SendChatMessage(player_controller, *GetText("Sender"), *GetText("NoPermissions"));
+	}
+}
+
 void ReadConfig()
 {
 	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "/ArkApi/Plugins/AdminsPermissions/config.json";
@@ -77,11 +110,13 @@ void Load()
 	}
 
 	ArkApi::GetCommands().AddChatCommand("/cheat", &OnChatMessage);
+	ArkApi::GetCommands().AddConsoleCommand("mcheat", &OnConsoleMessage);
 }
 
 void Unload()
 {
 	ArkApi::GetCommands().RemoveChatCommand("/cheat");
+	ArkApi::GetCommands().RemoveConsoleCommand("mcheat");
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
